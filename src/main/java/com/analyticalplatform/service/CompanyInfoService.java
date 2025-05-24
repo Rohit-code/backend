@@ -3,50 +3,69 @@ package com.analyticalplatform.service;
 import com.analyticalplatform.model.Stock;
 import com.analyticalplatform.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CompanyInfoService {
     private final StockRepository stockRepository;
-    private final RestTemplate restTemplate;
+    private final AlphaVantageService alphaVantageService;
+    private final ApiRateLimiterService apiRateLimiterService;
 
-    @Value("${finnhub.api.key}")
-    private String finnhubApiKey;
-
-    @Value("${finnhub.api.url}")
-    private String finnhubApiUrl;
-
+    /**
+     * Update company information using Alpha Vantage
+     */
     public void updateCompanyInfo(String symbol) {
-        String url = String.format("%s/stock/profile2?symbol=%s&token=%s", finnhubApiUrl, symbol, finnhubApiKey);
+        try {
+            // Acquire API rate limit permit
+            apiRateLimiterService.acquirePermit();
 
-        // Call Finnhub API
-        CompanyProfile response = restTemplate.getForObject(url, CompanyProfile.class);
+            // Call Alpha Vantage API
+            Map<String, Object> companyData = alphaVantageService.getCompanyOverview(symbol);
 
-        if (response != null) {
-            // Stock entity has String ID, so this should work
-            Optional<Stock> stockOpt = stockRepository.findById(symbol); // This is correct
+            if (companyData != null && companyData.containsKey("Name")) {
+                String companyName = (String) companyData.get("Name");
+                String sector = (String) companyData.get("Sector");
+                String industry = (String) companyData.get("Industry");
+                String description = (String) companyData.get("Description");
 
-            if (stockOpt.isPresent()) {
-                Stock stock = stockOpt.get();
-                stock.setCompanyName(response.getName());
+                // Find or create stock entity
+                Optional<Stock> stockOpt = stockRepository.findById(symbol);
+                Stock stock;
+
+                if (stockOpt.isPresent()) {
+                    stock = stockOpt.get();
+                } else {
+                    stock = new Stock();
+                    stock.setSymbol(symbol);
+                    // Initialize with default values
+                    stock.setCurrentPrice(null);
+                    stock.setPreviousClose(null);
+                    stock.setPercentChange(null);
+                    stock.setVolume(0L);
+                }
+
+                // Update company info
+                stock.setCompanyName(companyName);
+
+                // Add additional fields if you want to extend your Stock model
+                // For now just log them
+                log.info("Updated company info for {}: {} ({})", symbol, companyName, sector);
+
+                // Save to repository
                 stockRepository.save(stock);
             } else {
-                Stock stock = new Stock();
-                stock.setSymbol(symbol);
-                stock.setCompanyName(response.getName());
-                stockRepository.save(stock);
+                log.warn("No company data found for symbol: {}", symbol);
             }
+        } catch (InterruptedException e) {
+            log.error("API rate limit error when updating company info for {}", symbol, e);
+        } catch (Exception e) {
+            log.error("Error updating company info for {}", symbol, e);
         }
-    }
-
-    // Use Lombok for getters and setters
-    @lombok.Data
-    private static class CompanyProfile {
-        private String name;
     }
 }

@@ -1,7 +1,6 @@
 package com.analyticalplatform.model;
 
 import jakarta.persistence.*;
-import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,4 +35,13 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<StockTransaction> transactions;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Wallet wallet;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private Set<Watchlist> watchlists = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private Set<PriceAlert> priceAlerts = new HashSet<>();
 }

@@ -21,7 +21,20 @@ public class StockController {
     @GetMapping
     @ApiOperation(value = "Get all stocks", authorizations = {@Authorization(value = "JWT")})
     public ResponseEntity<List<StockDTO>> getAllStocks() {
-        return ResponseEntity.ok(stockService.getAllStocks());
+        List<StockDTO> stocks = stockService.getAllStocks();
+
+        // Debug logs
+        System.out.println("Fetched " + stocks.size() + " stocks from database");
+
+        // If empty, try to load some initial data
+        if (stocks.isEmpty()) {
+            System.out.println("No stocks found in database. Consider adding some test data.");
+
+            // Optionally, you could add a test stock here
+            // stockService.updateStockData("AAPL");
+        }
+
+        return ResponseEntity.ok(stocks);
     }
 
     @GetMapping("/{symbol}")

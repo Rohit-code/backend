@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -67,7 +69,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/api/auth/**", "/api/public/**", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/h2-console/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/public/**", "/actuator/**",
+                                "/v3/api-docs/**", "/swagger-ui/**", "/h2-console/**").permitAll()
+                        // Protect all endpoints - require authentication
+                        .requestMatchers("/api/market/**", "/api/stocks/**", "/api/transactions/**",
+                                "/api/analytics/**", "/api/wallet/**", "/api/watchlists/**",
+                                "/api/alerts/**").authenticated()
+                        // Admin-only endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
